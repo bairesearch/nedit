@@ -325,6 +325,11 @@ static struct prefData {
     Boolean honorSymlinks;
     int truncSubstitution;
     Boolean forceOSConversion;
+	int visibleTabStopsTab;
+	int visibleTabStopsTabReplaceFirstCharacterOnly;
+	int visibleTabStopsTabReplacementChar;
+	int visibleTabStopsSpace;
+	int visibleTabStopsSpaceReplacementChar;
 } PrefData;
 
 /* Temporary storage for preferences strings which are discarded after being
@@ -1073,7 +1078,17 @@ static PrefDescripRec PrefDescrip[] = {
     {"truncSubstitution", "TruncSubstitution", PREF_ENUM, "Fail",
             &PrefData.truncSubstitution, TruncSubstitutionModes, False},
     {"honorSymlinks", "HonorSymlinks", PREF_BOOLEAN, "True",
-            &PrefData.honorSymlinks, NULL, False}
+            &PrefData.honorSymlinks, NULL, False},
+    {"visibleTabStopsTab", "visibleTabStopsTab", PREF_BOOLEAN, "False",
+    	&PrefData.visibleTabStopsTab, NULL, False},
+    {"visibleTabStopsTabReplaceFirstCharacterOnly", "visibleTabStopsTabReplaceFirstCharacterOnly", PREF_BOOLEAN, "True",
+    	&PrefData.visibleTabStopsTabReplaceFirstCharacterOnly, NULL, False},
+    {"visibleTabStopsTabReplacementChar", "visibleTabStopsTabReplacementChar", PREF_INT, "187",
+    	&PrefData.visibleTabStopsTabReplacementChar, NULL, False},
+    {"visibleTabStopsSpace", "visibleTabStopsSpace", PREF_BOOLEAN, "False",
+    	&PrefData.visibleTabStopsSpace, NULL, False},
+    {"visibleTabStopsSpaceReplacementChar", "MaxPrevOpenFiles", PREF_INT, "183",
+    	&PrefData.visibleTabStopsSpaceReplacementChar, NULL, False},
 };
 
 static XrmOptionDescRec OpTable[] = {
@@ -1334,6 +1349,8 @@ void RestoreNEditPrefs(XrmDatabase prefDB, XrmDatabase appDB)
        written by an older version of NEdit, update regular expressions in
        highlight patterns to quote braces and use & instead of \0 */
     translatePrefFormats(requiresConversion, fileVer);
+	
+	BufSetVisibleSpaceCharacters(PrefData.visibleTabStopsTab, PrefData.visibleTabStopsTabReplaceFirstCharacterOnly, PrefData.visibleTabStopsTabReplacementChar, PrefData.visibleTabStopsSpace, PrefData.visibleTabStopsSpaceReplacementChar);
 }
 
 /*

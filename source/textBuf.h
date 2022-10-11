@@ -168,5 +168,6 @@ int BufSearchBackward(textBuffer *buf, int startPos, const char *searchChars,
 int BufSubstituteNullChars(char *string, int length, textBuffer *buf);
 void BufUnsubstituteNullChars(char *string, textBuffer *buf);
 int BufCmp(textBuffer * buf, int pos, int len, const char *cmpText);
+void BufSetVisibleSpaceCharacters(int visibleTabStopsTabNew, int visibleTabStopsTabReplaceFirstCharacterOnlyNew, int visibleTabStopsTabReplacementCharNew, int visibleTabStopsSpaceNew, int visibleTabStopsSpaceReplacementCharNew);
 
 #endif /* NEDIT_TEXTBUF_H_INCLUDED */

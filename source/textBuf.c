@@ -47,6 +47,12 @@
                                    in the buffer where text might be inserted
                                    if the user is typing sequential chars) */
 
+int visibleTabStopsTab = 0;
+int visibleTabStopsTabReplaceFirstCharacterOnly = 0;
+char visibleTabStopsTabReplacementChar = '»';	/*(char)187*/
+int visibleTabStopsSpace = 0;
+char visibleTabStopsSpaceReplacementChar = '·';	/*(char)183*/
+
 static void histogramCharacters(const char *string, int length, char hist[256],
 	int init);
 static void subsChars(char *string, int length, char fromChar, char toChar);
@@ -1045,13 +1051,38 @@ int BufExpandCharacter(char c, int indent, char *outStr,
         int tabDist, char nullSubsChar)
 {
     int i, nSpaces;
-    
+
+	if(visibleTabStopsSpace) {
+		/* show space characters */
+		if (c == ' ') {
+			*outStr = visibleTabStopsSpaceReplacementChar;
+			return 1;
+    	}
+	}
+	    
     /* Convert tabs to spaces */
     if (c == '\t') {
-	nSpaces = tabDist - (indent % tabDist);
-	for (i=0; i<nSpaces; i++)
-	    outStr[i] = ' ';
-	return nSpaces;
+		nSpaces = tabDist - (indent % tabDist);
+		for (i=0; i<nSpaces; i++) {
+			if(visibleTabStopsTab) {
+				/* show tab characters */
+				if(visibleTabStopsTabReplaceFirstCharacterOnly) {
+					if(i == 0) {
+						outStr[i] = visibleTabStopsTabReplacementChar;
+					}
+					else {
+						outStr[i] = ' ';
+					}
+				}
+				else {
+					outStr[i] = visibleTabStopsTabReplacementChar;
+				}
+			}
+			else {
+				outStr[i] = ' ';
+			}
+		}
+		return nSpaces;
     }
     
     /* Convert ASCII (and EBCDIC in the __MVS__ (OS/390) case) control
@@ -2578,3 +2609,13 @@ static int min(int i1, int i2)
 {
     return i1 <= i2 ? i1 : i2;
 }
+
+void BufSetVisibleSpaceCharacters(int visibleTabStopsTabNew, int visibleTabStopsTabReplaceFirstCharacterOnlyNew, int visibleTabStopsTabReplacementCharNew, int visibleTabStopsSpaceNew, int visibleTabStopsSpaceReplacementCharNew)
+{
+	visibleTabStopsTab = visibleTabStopsTabNew;
+	visibleTabStopsTabReplaceFirstCharacterOnly = visibleTabStopsTabReplaceFirstCharacterOnlyNew;
+	visibleTabStopsTabReplacementChar = visibleTabStopsTabReplacementCharNew;
+	visibleTabStopsSpace = visibleTabStopsSpaceNew;
+	visibleTabStopsSpaceReplacementChar = visibleTabStopsSpaceReplacementCharNew;
+}
+
