@@ -147,6 +147,8 @@ static void newlineNoIndentAP(Widget w, XEvent *event, String *args,
 	Cardinal *nArgs);
 static void processTabAP(Widget w, XEvent *event, String *args,
 	Cardinal *nArgs);
+static void processTabExAP(Widget w, XEvent *event, String *args,
+	Cardinal *nArgs);
 static void endOfLineAP(Widget w, XEvent *event, String *args, Cardinal *nArgs);
 static void beginningOfLineAP(Widget w, XEvent *event, String *args,
 	Cardinal *nArgs);
@@ -394,7 +396,8 @@ static char defaultTranslations[] =
     "Shift<KeyPress>osfActivate: newline_no_indent()\n" 
     "<KeyPress>osfActivate: newline()\n"
     "Ctrl<KeyPress>Tab: self_insert()\n"
-    "<KeyPress>Tab: process_tab()\n"
+    /* "<KeyPress>Tab: process_tab()\n" */
+    "<KeyPress>Tab: process_tab_ex()\n"
     "Alt Shift Ctrl<KeyPress>space: key_select(\"rect\")\n"
     "Meta Shift Ctrl<KeyPress>space: key_select(\"rect\")\n"
     "Shift Ctrl~Meta~Alt<KeyPress>space: key_select()\n"
@@ -571,6 +574,7 @@ static XtActionsRec actionsList[] = {
     {"process_return", selfInsertAP},
     {"process-tab", processTabAP},
     {"process_tab", processTabAP},
+    {"process_tab_ex", processTabExAP},
     {"insert-string", insertStringAP},
     {"insert_string", insertStringAP},
     {"mouse_pan", mousePanAP},
@@ -2333,6 +2337,34 @@ static void newlineAndIndentAP(Widget w, XEvent *event, String *args,
     }
     
     BufUnselect(buf);
+}
+
+/*
+** this is a wrapper function to add support for indenting the selected
+** lines left/right using tab & shift-tab keys, as commonly seen on most
+** modern programming editors out there (as of Jul-2020).
+*/
+static void processTabExAP(Widget w, XEvent *event, String *args,
+	Cardinal *nArgs)
+{
+    WindowInfo *window = WidgetToWindow(w);
+    textBuffer *buf = window->buffer;
+    int selStart, selEnd, isRect, rectStart, rectEnd;
+    int shiftByTab = False;
+
+    if (BufGetSelectionPos(buf, &selStart, &selEnd, &isRect,
+	    &rectStart, &rectEnd)) {
+	shiftByTab = BufCountLines(buf, selStart, selEnd) > 0;
+    }
+
+    if (shiftByTab) {
+	XtCallActionProc(window->lastFocus, event->xbutton.state & ShiftMask?
+	        "shift_left_by_tab" : "shift_right_by_tab",
+	        event, NULL, 0);
+    }
+    else {
+	processTabAP(w, event, args, nArgs);
+    }
 }
 
 static void processTabAP(Widget w, XEvent *event, String *args,
