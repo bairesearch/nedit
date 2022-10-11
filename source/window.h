@@ -83,6 +83,10 @@ WindowInfo *MarkActiveDocument(WindowInfo *window);
 void NextDocument(WindowInfo *window);
 void PreviousDocument(WindowInfo *window);
 void LastDocument(WindowInfo *window);
+#define SWITCH_DOCUMENTS_DIRECTION_NORMAL (1)
+#define SWITCH_DOCUMENTS_DIRECTION_REVERSE (2)
+void switchDocuments(WindowInfo *window, int direction);
+void switchDocumentsEnd(WindowInfo *window);
 int NDocuments(WindowInfo *window);
 WindowInfo *MoveDocument(WindowInfo *toWindow, WindowInfo *window);
 WindowInfo *DetachDocument(WindowInfo *window);

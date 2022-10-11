@@ -102,6 +102,8 @@ typedef void (*menuCallbackProc)();
 
 extern void _XmDismissTearOff(Widget, XtPointer, XtPointer);
 
+void initialiseSwitchDocumentsListWrapper();
+
 static void doActionCB(Widget w, XtPointer clientData, XtPointer callData);
 static void doTabActionCB(Widget w, XtPointer clientData, XtPointer callData);
 static void pasteColCB(Widget w, XtPointer clientData, XtPointer callData); 
@@ -318,6 +320,14 @@ static void prevDocumentAP(Widget w, XEvent *event, String *args,
 	Cardinal *nArgs);
 static void lastDocumentAP(Widget w, XEvent *event, String *args,
 	Cardinal *nArgs);
+static void switchDocumentsAP(Widget w, XEvent *event, String *args,
+	Cardinal *nArgs);
+static void switchDocumentsReverseAP(Widget w, XEvent *event, String *args,
+	Cardinal *nArgs);
+static void switchDocumentsEndAP(Widget w, XEvent *event, String *args,
+	Cardinal *nArgs);
+static void switchDocumentsNullAP(Widget w, XEvent *event, String *args,
+	Cardinal *nArgs);	
 static void closePaneAP(Widget w, XEvent *event, String *args, Cardinal *nArgs);
 static void capitalizeAP(Widget w, XEvent *event, String *args,
 	Cardinal *nArgs);
@@ -532,6 +542,10 @@ static XtActionsRec Actions[] = {
     {"next_document", nextDocumentAP},
     {"previous_document", prevDocumentAP},
     {"last_document", lastDocumentAP},
+    {"switch_documents", switchDocumentsAP},
+    {"switch_documents_reverse", switchDocumentsReverseAP},
+    {"switch_documents_end", switchDocumentsEndAP},
+    {"switch_documents_null", switchDocumentsNullAP},        
     {"uppercase", capitalizeAP},
     {"lowercase", lowercaseAP},
     {"fill-paragraph", fillAP},
@@ -595,6 +609,11 @@ static char** PrevOpen = NULL;
 /* Window to receive items to be toggled on and off in short menus mode */
 static WindowInfo *ShortMenuWindow;
 #endif
+
+void initialiseSwitchDocumentsListWrapper()
+{
+    initialiseSwitchDocumentsList();
+}
 
 void HidePointerOnKeyedEvent(Widget w, XEvent *event)
 {
@@ -3562,6 +3581,30 @@ static void lastDocumentAP(Widget w, XEvent *event, String *args,
 	Cardinal *nArgs)
 {    
     LastDocument(WidgetToWindow(w));    
+}
+
+static void switchDocumentsAP(Widget w, XEvent *event, String *args,
+	Cardinal *nArgs)
+{    
+    switchDocuments(WidgetToWindow(w), SWITCH_DOCUMENTS_DIRECTION_NORMAL);    
+}
+
+static void switchDocumentsReverseAP(Widget w, XEvent *event, String *args,
+	Cardinal *nArgs)
+{    
+    switchDocuments(WidgetToWindow(w), SWITCH_DOCUMENTS_DIRECTION_REVERSE);    
+}
+
+static void switchDocumentsEndAP(Widget w, XEvent *event, String *args,
+	Cardinal *nArgs)
+{    
+    switchDocumentsEnd(WidgetToWindow(w));    
+}
+
+static void switchDocumentsNullAP(Widget w, XEvent *event, String *args,
+	Cardinal *nArgs)
+{    
+    
 }
 
 static void capitalizeAP(Widget w, XEvent *event, String *args, Cardinal *nArgs)

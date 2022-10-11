@@ -193,6 +193,145 @@ static Widget containingPane(Widget w);
 
 static WindowInfo *inFocusDocument = NULL;  	/* where we are now */
 static WindowInfo *lastFocusDocument = NULL;	    	/* where we came from */
+
+typedef struct SwitchDocumentsListNode
+{
+    int windowIDdebug;
+    WindowInfo * focusDocument;
+    struct SwitchDocumentsListNode* next;
+    struct SwitchDocumentsListNode* previous;
+} SwitchDocumentsList;
+
+static SwitchDocumentsList* firstNodeInSwitchDocumentsList;
+static SwitchDocumentsList* activeNodeInSwitchDocumentsList;
+int switchDocumentsListTraverseDisableMarkActiveDocument;
+struct timeval switchDocumentsClockLastSave;
+int switchingDocumentsAtPresent;
+
+struct timeval getTimeNow()
+{
+    struct timeval timenow;
+    gettimeofday(&timenow, NULL);
+    return timenow;
+}
+
+void printWindowList()
+{
+    printf("*****printWindowList:******\n");
+    printf("firstNodeInSwitchDocumentsList = %d\n", firstNodeInSwitchDocumentsList->windowIDdebug);
+    printf("activeNodeInSwitchDocumentsList = %d\n", activeNodeInSwitchDocumentsList->windowIDdebug);
+    SwitchDocumentsList* currentNode = firstNodeInSwitchDocumentsList;
+    WindowInfo *win;   
+     
+    while(currentNode->next != NULL)
+    {
+    	printf("\tcurrentNode = %d, currentNode pointer = %d\n", currentNode->windowIDdebug, currentNode->focusDocument);
+    	currentNode = currentNode->next;
+    }
+}
+
+void initialiseSwitchDocumentsList()
+{
+    switchDocumentsClockLastSave = getTimeNow();
+    firstNodeInSwitchDocumentsList = malloc(sizeof(SwitchDocumentsList));
+    firstNodeInSwitchDocumentsList->windowIDdebug = 0;
+    firstNodeInSwitchDocumentsList->focusDocument = NULL;
+    firstNodeInSwitchDocumentsList->next = NULL;
+    firstNodeInSwitchDocumentsList->previous = NULL;
+    activeNodeInSwitchDocumentsList = firstNodeInSwitchDocumentsList;
+    switchDocumentsListTraverseDisableMarkActiveDocument = 0;
+    switchingDocumentsAtPresent = 0;
+}
+
+SwitchDocumentsList* switchDocumentsGetLastNodeInList()
+{
+    SwitchDocumentsList* currentNode = firstNodeInSwitchDocumentsList;
+    SwitchDocumentsList* lastNodeInList = currentNode;
+    while(currentNode->next != NULL)
+    {
+    	lastNodeInList = currentNode;
+    	currentNode = currentNode->next;
+    }
+    return lastNodeInList;
+}
+		    
+SwitchDocumentsList* switchDocumentsListRemoveNode(SwitchDocumentsList* nodeToRemove)
+{   
+    if(nodeToRemove->next != NULL)
+    {
+	if(nodeToRemove->previous == NULL)
+	{/*nodeToRemove is first node in list*/
+
+    	    nodeToRemove->next->previous = NULL;
+	    firstNodeInSwitchDocumentsList = nodeToRemove->next;
+
+	}
+	else
+	{/*nodeToRemove is not first node in list*/
+	    nodeToRemove->previous->next = nodeToRemove->next;
+	    nodeToRemove->next->previous = nodeToRemove->previous;
+	}
+	free(nodeToRemove);
+    }
+    else
+    {
+	printf("switchDocumentsListRemoveNode() error: removing dummy node is impossible: (nodeToRemove->next == NULL)\n");
+	exit(0);
+    }   
+
+    SwitchDocumentsList* lastNodeInList = switchDocumentsGetLastNodeInList();
+        
+    return lastNodeInList;     /*update activeNodeInSwitchDocumentsList (restore to last document in list)*/
+}
+
+SwitchDocumentsList* switchDocumentsListRemove(WindowInfo * focusDocument)
+{
+    SwitchDocumentsList* currentNode = firstNodeInSwitchDocumentsList;
+    SwitchDocumentsList* nodeToRemove = NULL;
+    int foundNodeToRemove = 0;
+    while(currentNode->next != NULL)
+    { 
+    	if(currentNode->focusDocument == focusDocument)
+	{
+	    /*found node to remove*/
+	    nodeToRemove = currentNode;
+	    foundNodeToRemove = 1;
+	}
+    	currentNode = currentNode->next;
+    }
+    SwitchDocumentsList* lastNodeInList = currentNode;
+    if(foundNodeToRemove)
+    {
+    	 lastNodeInList = switchDocumentsListRemoveNode(nodeToRemove);
+    }
+    else
+    {
+    }
+    return lastNodeInList;
+}
+
+SwitchDocumentsList* switchDocumentsListAdd(WindowInfo * focusDocument)
+{
+    switchDocumentsListRemove(focusDocument);	/*remove previous instance if existent*/
+      
+    SwitchDocumentsList* currentNode = firstNodeInSwitchDocumentsList;
+    int lastNewWindowIDdebug = 0;
+    while(currentNode->next != NULL)
+    {
+	lastNewWindowIDdebug = currentNode->windowIDdebug;
+    	currentNode = currentNode->next;
+    }
+    currentNode->windowIDdebug = lastNewWindowIDdebug+1;
+    currentNode->focusDocument = focusDocument;
+    SwitchDocumentsList* newNode = malloc(sizeof(SwitchDocumentsList));
+    newNode->focusDocument = NULL;
+    newNode->next = NULL;
+    newNode->previous = currentNode;
+    currentNode->next = newNode; 
+      
+    return currentNode;
+}
+
 static int DoneWithMoveDocumentDialog;
 static int updateLineNumDisp(WindowInfo* window);
 static int updateGutterWidth(WindowInfo* window);
@@ -800,6 +939,8 @@ WindowInfo *CreateWindow(const char *name, char *geometry, int iconic)
 	}
     }
     
+    activeNodeInSwitchDocumentsList = switchDocumentsListAdd(window);  
+        
     return window;
 }
 
@@ -3785,7 +3926,7 @@ WindowInfo *MarkLastDocument(WindowInfo *window)
     
     if (window)
     	lastFocusDocument = window;
-	
+    	
     return prev;
 }
 
@@ -3798,6 +3939,16 @@ WindowInfo *MarkActiveDocument(WindowInfo *window)
 
     if (window)
     	inFocusDocument = window;
+
+    if(switchDocumentsListTraverseDisableMarkActiveDocument == 0)
+    {
+		if(switchingDocumentsAtPresent == 1)
+		{/*in strange case user is switching documents while creating a new window for example?*/
+    		    activeNodeInSwitchDocumentsList = switchDocumentsListAdd(activeNodeInSwitchDocumentsList->focusDocument);	
+		    switchingDocumentsAtPresent = 0; 
+		} 
+    	activeNodeInSwitchDocumentsList = switchDocumentsListAdd(inFocusDocument);
+    }   
 
     return prev;
 }
@@ -3863,6 +4014,66 @@ void LastDocument(WindowInfo *window)
 	
 }
 
+void switchDocumentsEnd(WindowInfo *window)
+{
+	if(switchingDocumentsAtPresent == 1)
+	{
+		activeNodeInSwitchDocumentsList = switchDocumentsListAdd(activeNodeInSwitchDocumentsList->focusDocument);
+		switchingDocumentsAtPresent = 0;
+	}
+}
+/*
+** Switch through last active windows
+*/
+void switchDocuments(WindowInfo *window, int direction)
+{
+    WindowInfo *win;
+
+    if((activeNodeInSwitchDocumentsList->previous != NULL) || (activeNodeInSwitchDocumentsList->next->next != NULL))
+    {
+		if(direction == SWITCH_DOCUMENTS_DIRECTION_NORMAL)
+		{
+		    if(activeNodeInSwitchDocumentsList->previous != NULL)
+		    {
+				activeNodeInSwitchDocumentsList = activeNodeInSwitchDocumentsList->previous;
+		    }
+		    else
+		    {/*go around in circles...*/
+				activeNodeInSwitchDocumentsList = switchDocumentsGetLastNodeInList();
+			}
+		}
+		else if(direction != SWITCH_DOCUMENTS_DIRECTION_NORMAL)
+		{
+		    if(activeNodeInSwitchDocumentsList->next->next != NULL)
+		    {
+				activeNodeInSwitchDocumentsList = activeNodeInSwitchDocumentsList->next;
+		    }
+		    else
+		    {/*go around in circles...*/
+				activeNodeInSwitchDocumentsList = firstNodeInSwitchDocumentsList;
+		    }	
+		}
+    }
+
+    switchingDocumentsAtPresent = 1;
+        
+    for(win = WindowList; win; win=win->next)
+    	if (activeNodeInSwitchDocumentsList->focusDocument == win)
+	    break;
+    
+    if (!win)
+    	return;
+
+    switchDocumentsListTraverseDisableMarkActiveDocument = 1;
+
+    if (window->shell == win->shell)
+	RaiseDocument(win);
+    else
+    	RaiseDocumentWindow(win);
+
+    switchDocumentsListTraverseDisableMarkActiveDocument = 0;	
+}
+ 
 /*
 ** make sure window is alive is kicking
 */
@@ -4058,6 +4269,8 @@ static void deleteDocument(WindowInfo *window)
     if (NULL == window) {
         return;
     }
+
+    switchDocumentsListRemove(window);   
 
     XtDestroyWidget(window->splitPane);
 }

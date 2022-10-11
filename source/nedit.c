@@ -432,6 +432,8 @@ int main(int argc, char **argv)
     /* Save the command which was used to invoke nedit for restart command */
     ArgV0 = argv[0];
 
+    initialiseSwitchDocumentsListWrapper();
+
     /* Set locale for C library, X, and Motif input functions. 
        Reverts to "C" if requested locale not available. */
     XtSetLanguageProc(NULL, neditLanguageProc, NULL);
