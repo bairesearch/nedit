@@ -47,6 +47,7 @@
 #include "interpret.h"
 #include "parse.h"
 #include "help.h"
+#include "diffHighlight.h"
 #include "../util/misc.h"
 #include "../util/printUtils.h"
 #include "../util/fileUtils.h"
@@ -395,6 +396,7 @@ static const char cmdLineHelp[] =
 	      [-geometry geometry] [-iconic] [-noiconic] [-svrname name]\n\
 	      [-display [host]:server[.screen] [-xrm resourcestring]\n\
 	      [-import file] [-background color] [-foreground color]\n\
+	      [--diff-file file]\n\
 	      [-tabbed] [-untabbed] [-group] [-V|-version] [-h|-help]\n\
 	      [--] [file...]\n";
 #else
@@ -407,6 +409,7 @@ int main(int argc, char **argv)
     int gotoLine = False, macroFileRead = False, opts = True;
     int iconic=False, tabbed = -1, group = 0, isTabbed;
     char *toDoCommand = NULL, *geometry = NULL, *langMode = NULL;
+    char *diffFile = NULL;
     char filename[MAXPATHLEN], pathname[MAXPATHLEN];
     XtAppContext context;
     XrmDatabase prefDB;
@@ -625,6 +628,10 @@ int main(int argc, char **argv)
     		fprintf(stderr, "NEdit: argument to line should be a number\n");
     	    else
     	    	gotoLine = True;
+	} else if (opts && (!strcmp(argv[i], "--diff-file") ||
+		    !strcmp(argv[i], "-diff-file"))) {
+	    nextArg(argc, argv, &i);
+	    diffFile = argv[i];
     	} else if (opts && (*argv[i] == '+')) {
     	    nRead = sscanf((argv[i]+1), "%d", &lineNum);
 	    if (nRead != 1)
@@ -713,6 +720,9 @@ int main(int argc, char **argv)
 			}
 	    		if (gotoLine)
 	    	            SelectNumberedLine(window, lineNum);
+			if (diffFile != NULL) {
+			    ApplyDiffFileHighlight(window, diffFile, nameList[j]);
+			}
 			if (toDoCommand != NULL) {
 			    DoMacro(window, toDoCommand, "-do macro");
 			    toDoCommand = NULL;
@@ -770,6 +780,9 @@ int main(int argc, char **argv)
 		    }
 		    if (gotoLine)
 			SelectNumberedLine(window, lineNum);
+		    if (diffFile != NULL) {
+			ApplyDiffFileHighlight(window, diffFile, argv[i]);
+		    }
 		    if (toDoCommand != NULL) {
 			DoMacro(window, toDoCommand, "-do macro");
 	    	    	toDoCommand = NULL;

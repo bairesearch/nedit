@@ -19,6 +19,7 @@ nedit [B<-read>] [B<-create>] [B<-line> I<n> | B<+>I<n>] [B<-server>]
       [B<-xrm> I<resourcestring>]
       [B<-svrname> I<name>] [B<-import> I<file>] 
       [B<-background>|B<-bg> I<color>] [B<-foreground>|B<-fg> I<color>]
+      [B<--diff-file> I<file>]
       [B<-tabbed>] [B<-untabbed>] [B<-group>] 
       [B<-V|-version>] [B<-h|-help>] [B<-->] [file...]
 
@@ -44,6 +45,12 @@ Don't warn about file creation when a file doesn't exist.
 =item  B<-line> I<n>, B<+>I<n> 
 
 Go to line number I<n>.
+
+=item  B<--diff-file> I<file>
+
+Highlight the unified diff in I<file> on all following opened files. Added
+lines are shown with a green background. Removed lines are inserted into the
+display and shown with a red background. Diff views are opened read-only.
 
 =item  B<-server> 
 
