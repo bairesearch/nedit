@@ -32,6 +32,7 @@
 
 #include "file.h"
 #include "textBuf.h"
+#include "rangeset.h"
 #include "text.h"
 #include "window.h"
 #include "preferences.h"
@@ -92,6 +93,10 @@ static int doSave(WindowInfo *window);
 static void safeClose(WindowInfo *window);
 static int doOpen(WindowInfo *window, const char *name, const char *path,
      int flags);
+static int hasDiffDeletionRanges(textBuffer *buf);
+static char *getBufferTextForSave(textBuffer *buf, int *length,
+        int *omittedDiffDeletions);
+static void clearDiffRanges(textBuffer *buf);
 static void backupFileName(WindowInfo *window, char *name, size_t len);
 static int writeBckVersion(WindowInfo *window);
 static int bckError(WindowInfo *window, const char *errString, const char *file);
@@ -541,6 +546,7 @@ static int doOpen(WindowInfo *window, const char *name, const char *path,
     }
     
     /* Display the file contents in the text widget */
+    clearDiffRanges(window->buffer);
     window->ignoreModify = True;
     BufSetAll(window->buffer, fileString);
     window->ignoreModify = False;
@@ -927,6 +933,112 @@ int SaveWindowAs(WindowInfo *window, const char *newName, int addWrap)
     return retVal;
 }
 
+static int hasDiffDeletionRanges(textBuffer *buf)
+{
+    Rangeset *set;
+
+    if (buf == NULL || buf->rangesetTable == NULL)
+        return False;
+
+    set = RangesetFetchByName(buf->rangesetTable, RANGESET_DIFF_DELETIONS);
+    return set != NULL && RangesetGetNRanges(set) > 0;
+}
+
+static char *getBufferTextForSave(textBuffer *buf, int *length,
+        int *omittedDiffDeletions)
+{
+    Rangeset *set;
+    char *source;
+    char *filtered;
+    int rangeCount;
+    int sourceLen;
+    int outLen = 0;
+    int last = 0;
+    int i;
+
+    source = BufGetAll(buf);
+    sourceLen = buf->length;
+    if (length != NULL)
+        *length = sourceLen;
+    if (omittedDiffDeletions != NULL)
+        *omittedDiffDeletions = False;
+
+    if (buf->rangesetTable == NULL)
+        return source;
+
+    set = RangesetFetchByName(buf->rangesetTable, RANGESET_DIFF_DELETIONS);
+    if (set == NULL)
+        return source;
+
+    rangeCount = RangesetGetNRanges(set);
+    if (rangeCount <= 0)
+        return source;
+
+    filtered = (char *)NEditMalloc((size_t)sourceLen + 1);
+
+    for (i = 0; i < rangeCount; i++) {
+        int start, end;
+
+        if (!RangesetFindRangeNo(set, i, &start, &end))
+            continue;
+        if (start < 0)
+            start = 0;
+        if (end > sourceLen)
+            end = sourceLen;
+        if (end <= start)
+            continue;
+        if (start < last)
+            start = last;
+        if (start > last) {
+            memcpy(filtered + outLen, source + last, (size_t)(start - last));
+            outLen += start - last;
+        }
+        last = end;
+    }
+
+    if (last < sourceLen) {
+        memcpy(filtered + outLen, source + last, (size_t)(sourceLen - last));
+        outLen += sourceLen - last;
+    }
+    filtered[outLen] = '\0';
+
+    NEditFree(source);
+    if (length != NULL)
+        *length = outLen;
+    if (omittedDiffDeletions != NULL)
+        *omittedDiffDeletions = True;
+
+    return filtered;
+}
+
+static void clearDiffRanges(textBuffer *buf)
+{
+    int found;
+    RangesetTable *table;
+
+    if (buf == NULL || buf->rangesetTable == NULL)
+        return;
+
+    table = buf->rangesetTable;
+    do {
+        unsigned char *labels = RangesetGetList(table);
+        int i;
+
+        found = False;
+        for (i = 0; labels[i] != '\0'; i++) {
+            Rangeset *set = RangesetFetch(table, labels[i]);
+            char *name = set == NULL ? NULL : RangesetGetName(set);
+
+            if (name != NULL && (!strcmp(name, RANGESET_DIFF_ADDITIONS) ||
+                        !strcmp(name, RANGESET_DIFF_DELETIONS))) {
+                RangesetForget(table, labels[i]);
+                found = True;
+                break;
+            }
+        }
+    } while (found);
+}
+
 static int doSave(WindowInfo *window)
 {
     char *fileString = NULL;
@@ -934,6 +1046,7 @@ static int doSave(WindowInfo *window)
     struct stat statbuf;
     FILE *fp;
     int fileLen, result;
+    int omittedDiffDeletions;
 
     /* Get the full name of the file */
     strcpy(fullname, window->path);
@@ -967,7 +1080,9 @@ static int doSave(WindowInfo *window)
              changes. If the file is created for the first time, it has
              zero size on disk, and the check would falsely conclude that the
              file has changed on disk, and would pop up a warning dialog */
-    if (BufGetCharacter(window->buffer, window->buffer->length - 1) != '\n'
+    omittedDiffDeletions = hasDiffDeletionRanges(window->buffer);
+    if (!omittedDiffDeletions
+            && BufGetCharacter(window->buffer, window->buffer->length - 1) != '\n'
             && window->buffer->length != 0
             && GetPrefAppendLF())
     {
@@ -1000,8 +1115,11 @@ static int doSave(WindowInfo *window)
 #endif
     
     /* get the text buffer contents and its length */
-    fileString = BufGetAll(window->buffer);
-    fileLen = window->buffer->length;
+    fileString = getBufferTextForSave(window->buffer, &fileLen,
+            &omittedDiffDeletions);
+    if (omittedDiffDeletions && fileLen != 0 && fileString[fileLen - 1] != '\n'
+            && GetPrefAppendLF())
+        fileString[fileLen++] = '\n';
     
     /* If null characters are substituted for, put them back */
     BufUnsubstituteNullChars(fileString, window->buffer);
@@ -1084,7 +1202,7 @@ int WriteBackupFile(WindowInfo *window)
     char *fileString = NULL;
     char name[MAXPATHLEN];
     FILE *fp;
-    int fd, fileLen;
+    int fd, fileLen, omittedDiffDeletions;
     
     /* Generate a name for the autoSave file */
     backupFileName(window, name, sizeof(name));
@@ -1118,8 +1236,8 @@ int WriteBackupFile(WindowInfo *window)
 #endif
 
     /* get the text buffer contents and its length */
-    fileString = BufGetAll(window->buffer);
-    fileLen = window->buffer->length;
+    fileString = getBufferTextForSave(window->buffer, &fileLen,
+            &omittedDiffDeletions);
     
     /* If null characters are substituted for, put them back */
     BufUnsubstituteNullChars(fileString, window->buffer);

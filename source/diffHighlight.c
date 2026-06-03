@@ -126,9 +126,6 @@ void ApplyDiffFileHighlight(WindowInfo *window, const char *diffFile,
     ClearUndoList(window);
     ClearRedoList(window);
     SetWindowModified(window, False);
-    SET_USER_LOCKED(window->lockReasons, True);
-    SET_PERM_LOCKED(window->lockReasons, True);
-    UpdateWindowReadOnly(window);
     UpdateWindowTitle(window);
     RefreshTabState(window);
     UpdateStatsLine(window);
@@ -151,11 +148,11 @@ void ApplyDiffFileHighlight(WindowInfo *window, const char *diffFile,
         return;
     }
 
-    RangesetAssignName(delSet, "diff-deletions");
+    RangesetAssignName(delSet, RANGESET_DIFF_DELETIONS);
     RangesetAssignColorName(delSet, DIFF_DEL_COLOR);
-    RangesetChangeModifyResponse(delSet, "include");
+    RangesetChangeModifyResponse(delSet, "exclude");
 
-    RangesetAssignName(addSet, "diff-additions");
+    RangesetAssignName(addSet, RANGESET_DIFF_ADDITIONS);
     RangesetAssignColorName(addSet, DIFF_ADD_COLOR);
     RangesetChangeModifyResponse(addSet, "include");
 
@@ -630,8 +627,8 @@ static void clearExistingDiffRanges(RangesetTable *table)
             Rangeset *set = RangesetFetch(table, labels[i]);
             char *name = set == NULL ? NULL : RangesetGetName(set);
 
-            if (name != NULL && (!strcmp(name, "diff-additions") ||
-                        !strcmp(name, "diff-deletions"))) {
+            if (name != NULL && (!strcmp(name, RANGESET_DIFF_ADDITIONS) ||
+                        !strcmp(name, RANGESET_DIFF_DELETIONS))) {
                 RangesetForget(table, labels[i]);
                 found = 1;
                 break;

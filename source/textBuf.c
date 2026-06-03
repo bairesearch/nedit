@@ -93,6 +93,7 @@ static int getSelectionPos(selection *sel, int *start, int *end,
 static char *getSelectionText(textBuffer *buf, selection *sel);
 static void removeSelected(textBuffer *buf, selection *sel);
 static void replaceSelected(textBuffer *buf, selection *sel, const char *text);
+static int protectedDeletionRangeTouched(textBuffer *buf, int start, int end);
 static void addPadding(char *string, int startIndent, int toIndent,
 	int tabDist, int useTabs, char nullSubsChar, int *charsAdded);
 static int searchForward(textBuffer *buf, int startPos, char searchChar,
@@ -348,6 +349,11 @@ void BufInsert(textBuffer *buf, int pos, const char *text)
     if (pos > buf->length) pos = buf->length;
     if (pos < 0 ) pos = 0;
 
+    if (protectedDeletionRangeTouched(buf, pos, pos)) {
+        buf->cursorPosHint = pos;
+        return;
+    }
+
     /* Even if nothing is deleted, we must call these callbacks */
     callPreDeleteCBs(buf, pos, 0);
 
@@ -366,6 +372,11 @@ void BufReplace(textBuffer *buf, int start, int end, const char *text)
     char *deletedText;
     int nInserted = strlen(text);
     
+    if (protectedDeletionRangeTouched(buf, start, end)) {
+        buf->cursorPosHint = start;
+        return;
+    }
+
     callPreDeleteCBs(buf, start, end-start);
     deletedText = BufGetRange(buf, start, end);
     delete(buf, start, end);
@@ -389,6 +400,11 @@ void BufRemove(textBuffer *buf, int start, int end)
     if (start < 0) start = 0;
     if (end > buf->length) end = buf->length;
     if (end < 0) end = 0;
+
+    if (protectedDeletionRangeTouched(buf, start, end)) {
+        buf->cursorPosHint = start;
+        return;
+    }
 
     callPreDeleteCBs(buf, start, end-start);
     /* Remove and redisplay */
@@ -451,6 +467,15 @@ void BufInsertCol(textBuffer *buf, int column, int startPos, const char *text,
     lineStartPos = BufStartOfLine(buf, startPos);
     nDeleted = BufEndOfLine(buf, BufCountForwardNLines(buf, startPos, nLines)) -
     	    lineStartPos;
+    if (protectedDeletionRangeTouched(buf, lineStartPos,
+                lineStartPos + nDeleted)) {
+        buf->cursorPosHint = lineStartPos;
+        if (charsInserted != NULL)
+            *charsInserted = 0;
+        if (charsDeleted != NULL)
+            *charsDeleted = 0;
+        return;
+    }
     callPreDeleteCBs(buf, lineStartPos, nDeleted);
     deletedText = BufGetRange(buf, lineStartPos, lineStartPos + nDeleted);
     insertCol(buf, column, lineStartPos, text, &insertDeleted, &nInserted,
@@ -485,6 +510,15 @@ void BufOverlayRect(textBuffer *buf, int startPos, int rectStart,
     lineStartPos = BufStartOfLine(buf, startPos);
     nDeleted = BufEndOfLine(buf, BufCountForwardNLines(buf, startPos, nLines)) -
     	    lineStartPos;
+    if (protectedDeletionRangeTouched(buf, lineStartPos,
+                lineStartPos + nDeleted)) {
+        buf->cursorPosHint = lineStartPos;
+        if (charsInserted != NULL)
+            *charsInserted = 0;
+        if (charsDeleted != NULL)
+            *charsDeleted = 0;
+        return;
+    }
     callPreDeleteCBs(buf, lineStartPos, nDeleted);
     deletedText = BufGetRange(buf, lineStartPos, lineStartPos + nDeleted);
     overlayRect(buf, lineStartPos, rectStart, rectEnd, text, &insertDeleted,
@@ -517,6 +551,10 @@ void BufReplaceRect(textBuffer *buf, int start, int end, int rectStart,
        columnar delete and insert operations will replace whole lines */
     start = BufStartOfLine(buf, start);
     end = BufEndOfLine(buf, end);
+    if (protectedDeletionRangeTouched(buf, start, end)) {
+        buf->cursorPosHint = start;
+        return;
+    }
     
     callPreDeleteCBs(buf, start, end-start);
     
@@ -578,6 +616,10 @@ void BufRemoveRect(textBuffer *buf, int start, int end, int rectStart,
     
     start = BufStartOfLine(buf, start);
     end = BufEndOfLine(buf, end);
+    if (protectedDeletionRangeTouched(buf, start, end)) {
+        buf->cursorPosHint = start;
+        return;
+    }
     callPreDeleteCBs(buf, start, end-start);
     deletedText = BufGetRange(buf, start, end);
     deleteRect(buf, start, end, rectStart, rectEnd, &nInserted,
@@ -2069,6 +2111,10 @@ static void removeSelected(textBuffer *buf, selection *sel)
     
     if (!getSelectionPos(sel, &start, &end, &isRect, &rectStart, &rectEnd))
     	return;
+    if (protectedDeletionRangeTouched(buf, start, end)) {
+        buf->cursorPosHint = start;
+        return;
+    }
     if (isRect)
         BufRemoveRect(buf, start, end, rectStart, rectEnd);
     else
@@ -2083,6 +2129,10 @@ static void replaceSelected(textBuffer *buf, selection *sel, const char *text)
     /* If there's no selection, return */
     if (!getSelectionPos(sel, &start, &end, &isRect, &rectStart, &rectEnd))
     	return;
+    if (protectedDeletionRangeTouched(buf, start, end)) {
+        buf->cursorPosHint = start;
+        return;
+    }
     
     /* Do the appropriate type of replace */
     if (isRect)
@@ -2094,6 +2144,15 @@ static void replaceSelected(textBuffer *buf, selection *sel, const char *text)
        can't detect when the contents of a selection goes away) */
     sel->selected = False;
     redisplaySelection(buf, &oldSelection, sel);
+}
+
+static int protectedDeletionRangeTouched(textBuffer *buf, int start, int end)
+{
+    if (buf == NULL || buf->rangesetTable == NULL)
+        return False;
+
+    return RangesetTableNamedRangeTouches(buf->rangesetTable,
+            RANGESET_DIFF_DELETIONS, start, end);
 }
 
 static void addPadding(char *string, int startIndent, int toIndent,

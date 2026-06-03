@@ -1016,6 +1016,23 @@ Rangeset *RangesetFetch(RangesetTable *table, int label)
         return (Rangeset *)NULL;
 }
 
+Rangeset *RangesetFetchByName(RangesetTable *table, const char *name)
+{
+    int i;
+
+    if (table == NULL || name == NULL)
+        return (Rangeset *)NULL;
+
+    for (i = 0; i < table->n_set; i++) {
+        Rangeset *rangeset = &table->set[(int)table->order[i]];
+
+        if (rangeset->name != NULL && !strcmp(rangeset->name, name))
+            return rangeset;
+    }
+
+    return (Rangeset *)NULL;
+}
+
 
 unsigned char *RangesetGetList(RangesetTable *table)
 {
@@ -1072,6 +1089,36 @@ int RangesetIndex1ofPos(RangesetTable *table, int pos, int needs_color)
 		return table->order[i] + 1;
 	}
     }
+    return 0;
+}
+
+int RangesetTableNamedRangeTouches(RangesetTable *table, const char *name,
+        int start, int end)
+{
+    Rangeset *rangeset = RangesetFetchByName(table, name);
+    int i;
+
+    if (rangeset == NULL)
+        return 0;
+
+    if (end < start) {
+        int tmp = start;
+        start = end;
+        end = tmp;
+    }
+
+    for (i = 0; i < rangeset->n_ranges; i++) {
+        int rangeStart = rangeset->ranges[i].start;
+        int rangeEnd = rangeset->ranges[i].end;
+
+        if (start == end) {
+            if (start > rangeStart && start < rangeEnd)
+                return 1;
+        } else if (start < rangeEnd && end > rangeStart) {
+            return 1;
+        }
+    }
+
     return 0;
 }
 
@@ -1779,4 +1826,3 @@ int RangesetRemoveBetween(Rangeset *rangeset, int start, int end)
 }
 
 /* -------------------------------------------------------------------------- */
-

@@ -34,6 +34,8 @@
 #include <Xm/Xm.h>
 
 #define N_RANGESETS 63
+#define RANGESET_DIFF_ADDITIONS "diff-additions"
+#define RANGESET_DIFF_DELETIONS "diff-deletions"
 
 typedef struct _Range Range;
 typedef struct _Rangeset Rangeset;
@@ -63,11 +65,14 @@ int RangesetCreate(RangesetTable *table);
 int nRangesetsAvailable(RangesetTable *table);
 Rangeset *RangesetForget(RangesetTable *table, int label);
 Rangeset *RangesetFetch(RangesetTable *table, int label);
+Rangeset *RangesetFetchByName(RangesetTable *table, const char *name);
 unsigned char * RangesetGetList(RangesetTable *table);
 void RangesetTableUpdatePos(RangesetTable *table, int pos, int n_ins, int n_del);
 void RangesetBufModifiedCB(int pos, int nInserted, int nDeleted, int nRestyled,
 	const char *deletedText, void *cbArg);
 int RangesetIndex1ofPos(RangesetTable *table, int pos, int needs_color);
+int RangesetTableNamedRangeTouches(RangesetTable *table, const char *name,
+        int start, int end);
 int RangesetAssignColorName(Rangeset *rangeset, char *color_name);
 int RangesetAssignColorPixel(Rangeset *rangeset, Pixel color, int ok);
 char *RangesetGetName(Rangeset *rangeset);

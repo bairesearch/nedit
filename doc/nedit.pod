@@ -50,7 +50,8 @@ Go to line number I<n>.
 
 Highlight the unified diff in I<file> on all following opened files. Added
 lines are shown with a green background. Removed lines are inserted into the
-display and shown with a red background. Diff views are opened read-only.
+display and shown with a red background. Removed lines are protected from
+editing and omitted when the file is saved; all other text remains editable.
 
 =item  B<-server> 
 
