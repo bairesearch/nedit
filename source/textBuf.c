@@ -49,9 +49,9 @@
 
 int visibleTabStopsTab = 0;
 int visibleTabStopsTabReplaceFirstCharacterOnly = 0;
-char visibleTabStopsTabReplacementChar = '»';	/*(char)187*/
+char visibleTabStopsTabReplacementChar = (char)187;
 int visibleTabStopsSpace = 0;
-char visibleTabStopsSpaceReplacementChar = '·';	/*(char)183*/
+char visibleTabStopsSpaceReplacementChar = (char)183;
 
 static void histogramCharacters(const char *string, int length, char hist[256],
 	int init);
